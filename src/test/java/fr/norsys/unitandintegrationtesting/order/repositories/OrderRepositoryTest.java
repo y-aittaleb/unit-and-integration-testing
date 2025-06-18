@@ -1,14 +1,12 @@
 package fr.norsys.unitandintegrationtesting.order.repositories;
 
 import fr.norsys.unitandintegrationtesting.order.models.Order;
+import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.jdbc.Sql;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
@@ -19,23 +17,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @Testcontainers
-@ActiveProfiles("test")
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@TestPropertySource(properties = {
-        "spring.jpa.hibernate.ddl-auto=create-drop"
-})
-@Sql(scripts = "/test-data.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_CLASS)
 class OrderRepositoryTest {
 
     @Autowired
     private OrderRepository orderRepository;
 
+    @Autowired
+    private EntityManager entityManager;
+
+    @BeforeEach
+    void setUp() {
+        entityManager.createNativeQuery("TRUNCATE TABLE orders").executeUpdate();
+        entityManager.createNativeQuery("ALTER TABLE orders AUTO_INCREMENT = 1").executeUpdate();
+        entityManager.persist(new Order(null, "Laptop", 1200.00, 2));
+        entityManager.persist(new Order(null, "Smartphone", 800.00, 5));
+        entityManager.persist(new Order(null, "Tablet", 300.00, 10));
+        entityManager.persist(new Order(null, "Monitor", 400.00, 3));
+        entityManager.persist(new Order(null, "Keyboard", 50.00, 20));
+        entityManager.flush();
+    }
+
+
     @Test
     @Rollback
     void shouldSaveAndRetrieveOrder() {
-        Order savedOrder = orderRepository.save(new Order(null, "nintendo", 89.99, 2));
+        Order newOrder = orderRepository.save(new Order(null, "nintendo", 89.99, 2));
 
-        Optional<Order> retrievedOrder = orderRepository.findById(savedOrder.getId());
+        Optional<Order> retrievedOrder = Optional.ofNullable(entityManager.find(Order.class, newOrder.getId()));
 
         assertThat(retrievedOrder).isPresent();
         assertThat(retrievedOrder.get().getProduct()).isEqualTo("nintendo");
@@ -43,7 +51,6 @@ class OrderRepositoryTest {
 
     @Test
     void shouldFindAllOrders() {
-
         List<Order> orders = orderRepository.findAll();
 
         assertThat(orders).hasSize(5);
@@ -52,13 +59,14 @@ class OrderRepositoryTest {
     }
 
     @Test
-    @Rollback
     void shouldDeleteOrder() {
         orderRepository.deleteById(1L);
 
-        Optional<Order> deletedOrder = orderRepository.findById(1L);
+        Optional<Order> deletedOrder = Optional.ofNullable(entityManager.find(Order.class, 1L));
+
         List<Order> orders = orderRepository.findAll();
         assertThat(orders).hasSize(4);
+        assertThat(deletedOrder).isEmpty();
     }
 
 }

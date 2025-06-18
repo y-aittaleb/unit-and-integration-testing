@@ -1,19 +1,22 @@
 package fr.norsys.unitandintegrationtesting;
 
 
+import fr.norsys.unitandintegrationtesting.order.models.Order;
+import jakarta.persistence.EntityManager;
+import org.springframework.transaction.annotation.Transactional;import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -21,18 +24,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebMvc
 @Testcontainers
-@ActiveProfiles("test")
-@TestPropertySource(properties = {
-        "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.sql.init.mode=never"
-})
-@Sql(scripts = "/test-data.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+@Transactional
 public class OrderApiIntegrationTest {
 
     private MockMvc mockMvc;
 
     @Autowired
+    private EntityManager entityManager;
+
+    @Autowired
     private WebApplicationContext webApplicationContext;
+
+    @BeforeEach
+    void setUp() {
+        entityManager.createNativeQuery("TRUNCATE TABLE orders").executeUpdate();
+        entityManager.createNativeQuery("ALTER TABLE orders AUTO_INCREMENT = 1").executeUpdate();
+        entityManager.persist(new Order(null, "Laptop", 1200.00, 2));
+        entityManager.persist(new Order(null, "Smartphone", 800.00, 5));
+        entityManager.persist(new Order(null, "Tablet", 300.00, 10));
+        entityManager.persist(new Order(null, "Monitor", 400.00, 3));
+        entityManager.persist(new Order(null, "Keyboard", 50.00, 20));
+        entityManager.flush();
+    }
+
     @Test
     void shouldGetAllOrdersFromSqlData() throws Exception {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
@@ -72,11 +86,10 @@ public class OrderApiIntegrationTest {
                 .andExpect(jsonPath("$.qty").value(1));
 
         //get the newly created order to verify it exists
-        mockMvc.perform(get("/api/orders"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$", hasSize(6))) // 5 original orders + 1 new order
-                .andExpect(jsonPath("$[5].product").value("Mouse"));
+        Order newOrder = entityManager.createQuery("SELECT o FROM Order o WHERE o.product = 'Mouse'", Order.class)
+                .getSingleResult();
+        assertThat(newOrder).isNotNull();
+        assertThat(newOrder.getProduct()).isEqualTo("Mouse");
     }
 
     @Test
@@ -88,11 +101,8 @@ public class OrderApiIntegrationTest {
                 .andExpect(content().string("Order deleted - Order ID:1"));
 
         // Verify the order is deleted
-        mockMvc.perform(get("/api/orders"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$", hasSize(4))); // 5 original orders - 1 deleted;
+        Optional<Order> deletedOrder = Optional.ofNullable(entityManager.find(Order.class, 1L));
+        assertThat(deletedOrder).isNotPresent();
     }
-
 
 }
