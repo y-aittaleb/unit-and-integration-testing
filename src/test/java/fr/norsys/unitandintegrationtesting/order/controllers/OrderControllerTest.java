@@ -71,7 +71,6 @@ public class OrderControllerTest {
     @Test
     void shouldCreateOrder() throws Exception {
         when(orderService.createOrder(any(Order.class))).thenReturn(order1);
-        when(orderService.createOrder(any(Order.class))).thenReturn(order1);
 
         mockMvc.perform(
                         post("/api/orders")
