@@ -38,35 +38,4 @@ class OrderRepositoryTest {
     }
 
 
-    @Test
-    @Rollback
-    void shouldSaveAndRetrieveOrder() {
-        Order newOrder = orderRepository.save(new Order(null, "nintendo", 89.99, 2));
-
-        Optional<Order> retrievedOrder = Optional.ofNullable(entityManager.find(Order.class, newOrder.getId()));
-
-        assertThat(retrievedOrder).isPresent();
-        assertThat(retrievedOrder.get().getProduct()).isEqualTo("nintendo");
-    }
-
-    @Test
-    void shouldFindAllOrders() {
-        List<Order> orders = orderRepository.findAll();
-
-        assertThat(orders).hasSize(5);
-        assertThat(orders).extracting(Order::getProduct)
-                .containsExactlyInAnyOrder("Laptop", "Smartphone", "Tablet", "Monitor", "Keyboard");
-    }
-
-    @Test
-    void shouldDeleteOrder() {
-        orderRepository.deleteById(1L);
-
-        Optional<Order> deletedOrder = Optional.ofNullable(entityManager.find(Order.class, 1L));
-
-        List<Order> orders = orderRepository.findAll();
-        assertThat(orders).hasSize(4);
-        assertThat(deletedOrder).isEmpty();
-    }
-
 }

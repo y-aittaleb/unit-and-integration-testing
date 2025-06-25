@@ -27,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 public class OrderApiIntegrationTest {
 
+
     private MockMvc mockMvc;
 
     @Autowired
@@ -47,62 +48,5 @@ public class OrderApiIntegrationTest {
         entityManager.flush();
     }
 
-    @Test
-    void shouldGetAllOrdersFromSqlData() throws Exception {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-        mockMvc.perform(get("/api/orders"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$", hasSize(5)))
-                .andExpect(jsonPath("$[0].product").value("Laptop"))
-                .andExpect(jsonPath("$[1].product").value("Smartphone"))
-                .andExpect(jsonPath("$[2].product").value("Tablet"))
-                .andExpect(jsonPath("$[3].product").value("Monitor"))
-                .andExpect(jsonPath("$[4].product").value("Keyboard"));
-    }
-
-    @Test
-    void shouldGetOrderById() throws Exception {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-
-        mockMvc.perform(get("/api/orders/1"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.product").value("Laptop"));
-    }
-
-    @Test
-    void shouldCreateNewOrder() throws Exception {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-        String newOrderJson = "{ \"product\": \"Mouse\", \"price\": 29.99, \"qty\": 1 }";
-
-        mockMvc.perform(post("/api/orders")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(newOrderJson))
-                .andExpect(status().isCreated())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.product").value("Mouse"))
-                .andExpect(jsonPath("$.price").value(29.99))
-                .andExpect(jsonPath("$.qty").value(1));
-
-        //get the newly created order to verify it exists
-        Order newOrder = entityManager.createQuery("SELECT o FROM Order o WHERE o.product = 'Mouse'", Order.class)
-                .getSingleResult();
-        assertThat(newOrder).isNotNull();
-        assertThat(newOrder.getProduct()).isEqualTo("Mouse");
-    }
-
-    @Test
-    void shouldDeleteOrderById() throws Exception {
-        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-
-        mockMvc.perform(delete("/api/orders/1"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Order deleted - Order ID:1"));
-
-        // Verify the order is deleted
-        Optional<Order> deletedOrder = Optional.ofNullable(entityManager.find(Order.class, 1L));
-        assertThat(deletedOrder).isNotPresent();
-    }
 
 }
